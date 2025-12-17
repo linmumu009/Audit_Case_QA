@@ -56,14 +56,12 @@ python get_keywords_batch.py
 
     ```
 ## 3 案例入库
-### 3.1 安装ES
-- 详见ElasticSearch安装教程：<https://blog.csdn.net/qq_29539827/article/details/154174494>
-- 下载ES安装包：我是当前最新版9.2.2，<https://www.elastic.co/downloads/elasticsearch>
-- 下载分词器：配套9.2.2的分词器，<https://release.infinilabs.com/analysis-ik/stable/>。剪切```elasticsearch-analysis-ik-9.2.2```文件夹到```elasticsearch-9.2.2/plugins```下粘贴
-- 回到```elasticsearch-9.2.2/bin```目录，双击```elasticsearch.bat```进行启动。
+### 3.1 ES准备
+我使用的是ElasticSearch-9.2.2做知识存储，项目执行前需先启动知识库。
+- 在```elasticsearch-9.2.2/bin```目录，双击```elasticsearch.bat```进行启动。
   - 如果报错，请确认文件夹路径无空格。
-  - 还不行修改```elasticsearch-9.2.2/config/elasticsearch.yml```，设置```xpack.security.enabled: false```
-- 安装成功后运行地址：<http://localhost:9200/>
+  - 还不行修改```elasticsearch-9.2.2/config/elasticsearch.yml```，设置```xpack.security.enabled: false```关闭安全设置。
+- 安装成功后运行可见
     ```
     {
     "name" : "your pc name",
