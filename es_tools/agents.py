@@ -34,6 +34,8 @@ def create_es_agent(
     verbose=False,
     agent_executor_kwargs=None,
     extra_tools=(),
+    embeddings=None,
+    embedding_fn=None,
     *,
     es_client=None,
     index_allowlist=None,
@@ -68,8 +70,10 @@ def create_es_agent(
             raise ValueError("Must provide either toolkit or es_client.")
         toolkit = ElasticsearchDatabaseToolkit(
             es_client=es_client,
-            llm=llm,  # 可：用于 QueryESDSLCheckerTool
-            config=ElasticsearchToolkitConfig(index_allowlist=index_allowlist),
+            llm=llm,
+            embeddings=embeddings,
+            embedding_fn=embedding_fn,
+            config=ElasticsearchToolkitConfig(index_allowlist=index_allowlist, max_hits_cap=top_k),
         )
 
     tools = toolkit.get_tools() + list(extra_tools)
