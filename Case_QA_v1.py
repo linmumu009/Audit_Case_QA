@@ -6,16 +6,50 @@ from langgraph.runtime import get_runtime
 from langchain_openai import ChatOpenAI
 from elasticsearch import Elasticsearch
 from openai import OpenAI
+from pathlib import Path
+from types import SimpleNamespace
+
+from es_tools.tools import ESVectorSearchTool
 
 # ES配置项，地址、接口、仓库
 ES_HOST = "http://localhost:9200"
 es = Elasticsearch(f"{ES_HOST}")
 index_name = "audit_2025_cases"
 
+def load_llm_api_key():
+    """从配置文件中加载API密钥"""
+    config_path = Path("config/qwen_long_api_key.txt")
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            api_key = f.read().strip()
+        if not api_key:
+            raise ValueError("API密钥文件为空")
+        return api_key
+    except FileNotFoundError:
+        raise FileNotFoundError(f"API密钥文件不存在: {config_path}")
+    except Exception as e:
+        raise Exception(f"读取API密钥失败: {e}")
+
+api_key = load_llm_api_key()
+# def load_embed_api_key():
+#     """从配置文件中加载API密钥"""
+#     config_path = Path("config/guiji.txt")
+#     try:
+#         with open(config_path, 'r', encoding='utf-8') as f:
+#             api_key = f.read().strip()
+#         if not api_key:
+#             raise ValueError("API密钥文件为空")
+#         return api_key
+#     except FileNotFoundError:
+#         raise FileNotFoundError(f"API密钥文件不存在: {config_path}")
+#     except Exception as e:
+#         raise Exception(f"读取API密钥失败: {e}")
+        
+# em_api_key = load_embed_api_key()
 # OpenAI的embedding接口
 client = OpenAI(
-    base_url="your_base_url",
-    api_key="your_api_key",
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    api_key=api_key,
 )
 
 # 文本转向量
@@ -28,8 +62,8 @@ def text2vec(case: str) -> dict:
 # 大模型接口
 llm = ChatOpenAI(
     model="qwen-plus",
-    openai_api_key="your_api_key",
-    openai_api_base="your_base_url",
+    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    api_key=api_key,
 )
 
 # 固化信息
@@ -292,32 +326,36 @@ def es_search(state: State):
                 "must": must_clauses,
             },
         }
-
-    search_body = {
-        "size": topk,  # 只取相似度最高的k条
-        "_source": [
-            "子公司",
-            "省",
-            "市",
-            "分支机构",
-            "缺陷内容",
-            "_score",
-        ],  # 只返回需要的字段，减少数据传输
-        "query": {
-            "script_score": {
-                "query": query_es,
-                "script": {
-                    "source": "cosineSimilarity(params.query_vec, doc['缺陷内容向量_qwen'])",
-                    "params": {
-                        "query_vec": query_vec,
-                    },
-                },
-            }
-        },
-        "sort": [{"_score": {"order": "desc"}}],  # 按相似度得分降序
-    }
-    result = es.search(index=index_name, body=search_body)
-    print(f"\n👉ES搜索结果：\n{result}")
+    tool_config = SimpleNamespace(
+        index_allowlist=None,
+        request_timeout=10.0,
+        max_hits_cap=200,
+    )
+    tool = ESVectorSearchTool(
+        es=es,
+        config=tool_config,
+        embeddings=None,
+        embedding_fn=text2vec,
+    )
+    result = tool._run(
+        index=index_name,
+        query_text=query_rewrite,
+        vector_field="缺陷内容向量_qwen",
+        k=topk,
+        num_candidates=max(topk * 5, 50),
+        filter=query_es,
+        source_includes=["子公司", "省", "市", "分支机构", "缺陷内容"],
+    )
+    hits = result.get("hits", {}).get("hits", [])
+    print(f"\nES命中: {len(hits)}")
+    for i, hit in enumerate(hits[: min(topk, 3)], 1):
+        src = hit.get("_source", {})
+        score = hit.get("_score", 0.0)
+        region = f"{src.get('省', '')}/{src.get('市', '')}/{src.get('分支机构', '')}"
+        company = src.get("子公司", "")
+        text = src.get("缺陷内容", "")
+        snippet = (text[:60] + "…") if isinstance(text, str) and len(text) > 60 else text
+        print(f"{i}. {company} {region} | {score:.3f} | {snippet}")
 
     # 汇总案例和相似度得分
     cases = []
@@ -439,3 +477,7 @@ if __name__ == "__main__":
         state = app.invoke(state, context=context)
         print(f"\n🤖 机器人：{state.get('response', '本轮拒答')}")
         # print(f"\n=====我们看看结束的状态是啥样：=====\n{state}\n")
+
+
+
+

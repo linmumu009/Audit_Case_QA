@@ -10,13 +10,40 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, Type
 
 from elasticsearch import Elasticsearch
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain_core.tools import BaseTool
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+
+try:
+    from langchain_core.pydantic_v1 import BaseModel, Field  # type: ignore
+except Exception:  # noqa: BLE001
+    try:
+        from pydantic import BaseModel, Field  # type: ignore
+    except Exception:  # noqa: BLE001
+        class BaseModel:  # type: ignore
+            pass
+
+        def Field(default=None, description: str | None = None):  # type: ignore
+            return default
+
+
+class BaseTool:  # type: ignore
+    name: str = ""
+    description: str = ""
+    args_schema: Any | None = None
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def _run(self, *args, **kwargs):  # pragma: no cover
+        raise NotImplementedError
+
+try:
+    from langchain_core.prompts import ChatPromptTemplate  # type: ignore
+    from langchain_core.output_parsers import StrOutputParser  # type: ignore
+except Exception:  # noqa: BLE001
+    ChatPromptTemplate = None  # type: ignore
+    StrOutputParser = None  # type: ignore
 
 
 # -----------------------------
@@ -102,8 +129,8 @@ class _ToolkitConfigProto(BaseModel):
 # -----------------------------
 
 class ESListIndicesTool(BaseTool):
-    name = "es_list_indices"
-    description = "List indices in Elasticsearch cluster (read-only). Input is optional; output is a list of index names."
+    name: str = "es_list_indices"
+    description: str = "List indices in Elasticsearch cluster (read-only). Input is optional; output is a list of index names."
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -128,9 +155,9 @@ class ESGetMappingInput(BaseModel):
 
 
 class ESGetMappingTool(BaseTool):
-    name = "es_get_mapping"
-    description = "Get index mapping. Input: {index}. Output: mapping JSON (read-only)."
-    args_schema = ESGetMappingInput
+    name: str = "es_get_mapping"
+    description: str = "Get index mapping. Input: {index}. Output: mapping JSON (read-only)."
+    args_schema: Type[BaseModel] = ESGetMappingInput
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -152,9 +179,9 @@ class ESFieldCapsInput(BaseModel):
 
 
 class ESFieldCapsTool(BaseTool):
-    name = "es_field_caps"
-    description = "Get field capabilities for an index. Input: {index, fields}. Output: field_caps JSON (read-only)."
-    args_schema = ESFieldCapsInput
+    name: str = "es_field_caps"
+    description: str = "Get field capabilities for an index. Input: {index, fields}. Output: field_caps JSON (read-only)."
+    args_schema: Type[BaseModel] = ESFieldCapsInput
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -180,9 +207,9 @@ class ESSampleDocsInput(BaseModel):
 
 
 class ESSampleDocsTool(BaseTool):
-    name = "es_sample_docs"
-    description = "Sample documents from an index for schema understanding. Input: {index, size}. Output: hits (read-only)."
-    args_schema = ESSampleDocsInput
+    name: str = "es_sample_docs"
+    description: str = "Sample documents from an index for schema understanding. Input: {index, size}. Output: hits (read-only)."
+    args_schema: Type[BaseModel] = ESSampleDocsInput
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -207,9 +234,9 @@ class ESSearchDSLInput(BaseModel):
 
 
 class ESSearchDSLTool(BaseTool):
-    name = "es_search_dsl"
-    description = "Execute an Elasticsearch search with provided Query DSL JSON. Input: {index, body, size}. Output: search response (read-only)."
-    args_schema = ESSearchDSLInput
+    name: str = "es_search_dsl"
+    description: str = "Execute an Elasticsearch search with provided Query DSL JSON. Input: {index, body, size}. Output: search response (read-only)."
+    args_schema: Type[BaseModel] = ESSearchDSLInput
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -238,9 +265,9 @@ class ESCountInput(BaseModel):
 
 
 class ESCountTool(BaseTool):
-    name = "es_count"
-    description = "Count docs matching a query. Input: {index, query}. Output: count response (read-only)."
-    args_schema = ESCountInput
+    name: str = "es_count"
+    description: str = "Count docs matching a query. Input: {index, query}. Output: count response (read-only)."
+    args_schema: Type[BaseModel] = ESCountInput
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -263,9 +290,9 @@ class ESValidateQueryInput(BaseModel):
 
 
 class ESValidateQueryTool(BaseTool):
-    name = "es_validate_query"
-    description = "Validate Query DSL via _validate/query. Input: {index, query}. Output: validation response (read-only)."
-    args_schema = ESValidateQueryInput
+    name: str = "es_validate_query"
+    description: str = "Validate Query DSL via _validate/query. Input: {index, query}. Output: validation response (read-only)."
+    args_schema: Type[BaseModel] = ESValidateQueryInput
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -293,9 +320,9 @@ class ESExplainInput(BaseModel):
 
 
 class ESExplainTool(BaseTool):
-    name = "es_explain"
-    description = "Explain why a document matches (or not). Input: {index, doc_id, query}. Output: explain response (read-only)."
-    args_schema = ESExplainInput
+    name: str = "es_explain"
+    description: str = "Explain why a document matches (or not). Input: {index, doc_id, query}. Output: explain response (read-only)."
+    args_schema: Type[BaseModel] = ESExplainInput
 
     def __init__(self, es: Elasticsearch, config: Any):
         super().__init__()
@@ -322,12 +349,12 @@ class QueryESDSLCheckerInput(BaseModel):
 
 
 class QueryESDSLCheckerTool(BaseTool):
-    name = "es_dsl_checker"
+    name: str = "es_dsl_checker"
     description = (
         "Use an LLM to sanity-check and correct an Elasticsearch _search request body (Query DSL). " 
         "Input: {index, body}. Output: corrected JSON body."
     )
-    args_schema = QueryESDSLCheckerInput
+    args_schema: Type[BaseModel] = QueryESDSLCheckerInput
 
     def __init__(self, es: Elasticsearch, llm: Any, config: Any):
         super().__init__()
@@ -394,12 +421,12 @@ class ESQueryVectorInput(BaseModel):
 
 
 class ESQueryVectorTool(BaseTool):
-    name = "es_query_vector"
+    name: str = "es_query_vector"
     description = (
         "Generate an embedding vector for a query text. Default output does NOT include the full vector to avoid huge outputs; " 
         "set return_vector=true only for debugging/out-of-band usage."
     )
-    args_schema = ESQueryVectorInput
+    args_schema: Type[BaseModel] = ESQueryVectorInput
 
     def __init__(self, embeddings: Any = None, embedding_fn: Optional[Callable[[str], List[float]]] = None):
         super().__init__()
@@ -443,13 +470,13 @@ class ESVectorSearchInput(BaseModel):
 
 
 class ESVectorSearchTool(BaseTool):
-    name = "es_vector_search"
+    name: str = "es_vector_search"
     description = (
         "Vector search helper: embeds query_text then runs Elasticsearch vector search on a dense_vector field. "
         "It will use approximate kNN (search API 'knn' option) when the vector field is indexed; otherwise it "
         "falls back to an exact script_score approach. This avoids returning the full embedding vector to the model."
     )
-    args_schema = ESVectorSearchInput
+    args_schema: Type[BaseModel] = ESVectorSearchInput
 
     def __init__(
         self,
@@ -535,7 +562,7 @@ class ESVectorSearchTool(BaseTool):
                 "script_score": {
                     "query": base_query,
                     "script": {
-                        "source": f"cosineSimilarity(params.query_vector, '{vector_field}') + 1.0",
+                        "source": f"cosineSimilarity(params.query_vector, doc['{vector_field}']) + 1.0",
                         "params": {"query_vector": qv},
                     },
                 }
@@ -544,4 +571,3 @@ class ESVectorSearchTool(BaseTool):
         if source_includes is not None:
             body["_source"] = {"includes": source_includes}
         return self.es.search(index=index, body=body, request_timeout=self.config.request_timeout)
-

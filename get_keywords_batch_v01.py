@@ -3,7 +3,7 @@ import asyncio
 from openai import AsyncOpenAI  # 导入异步客户端
 import json
 import os
-
+from pathlib import Path
 
 class GetKeywords:
     def __init__(self, base_url, api_key, model_name, thinking=False, max_concurrent=5):
@@ -104,11 +104,25 @@ class GetKeywords:
 
         return results
 
+def load_api_key():
+    """从配置文件中加载API密钥"""
+    config_path = Path("config/qwen_long_api_key.txt")
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            api_key = f.read().strip()
+        if not api_key:
+            raise ValueError("API密钥文件为空")
+        return api_key
+    except FileNotFoundError:
+        raise FileNotFoundError(f"API密钥文件不存在: {config_path}")
+    except Exception as e:
+        raise Exception(f"读取API密钥失败: {e}")
+
+
 
 async def main():
-    base_url = "your_base_url"
-    api_key = "your_api_key"
-
+    base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key = load_api_key()
     # 选择供应商和模型
     get_keywords = GetKeywords(
         base_url=base_url,
@@ -119,7 +133,7 @@ async def main():
     )
 
     # 导入指令集，这里换成了我用大模型生成的
-    data = pd.read_excel("./data/用户查询指令集.xlsx")
+    data = pd.read_excel("./data/用户查询指令集01.xlsx")
     questions = list(data["问题"])[:]
 
     # 并发处理所有问题
